@@ -29,12 +29,14 @@ namespace WebApplication1
         [WebMethod]
         public DataSet GBCustoms_ServiceEntrance(string strVOYAGE_NO, string strUserID, string strUserPWD, string strVisitorNO, out string[][] outMessage)
         {
+            outMessage = new string[][] { };
             DataTable EHS_ENTRY_HEAD = new DataTable();
             EHS_ENTRY_HEAD.Columns.Add("SHIP_ID");
             EHS_ENTRY_HEAD.Columns.Add("VOYAGE_ID");
             EHS_ENTRY_HEAD.Columns.Add("BILL_ID");
             EHS_ENTRY_HEAD.Columns.Add("I_E_FLAG");
             EHS_ENTRY_HEAD.Columns.Add("I_E_PORT");
+            return null;
         }
     }
 }
