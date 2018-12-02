@@ -1,6 +1,8 @@
 ﻿using GongBei.Model;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Text;
 using TeriusCommon.Helpers;
@@ -32,7 +34,7 @@ namespace GongBei.DB
             }
             return 0;
 
-         
+
         }
 
         public int SavectDeviceStatusData(ctDeviceStatus info)
@@ -68,5 +70,57 @@ namespace GongBei.DB
                 SavectConclusionResultData_SQL = sb.ToString();
             }
         }
+
+        string sqlSaveHead = "";
+        public int SaveHead(Hashtable ht)
+        {
+            CreateSaveHeadSql(ht);
+            IList<SqlParameter> paramList = new List<SqlParameter>();
+            foreach (DictionaryEntry de in ht)
+            {
+                paramList.Add(new SqlParameter("@" + de.Key, de.Value));
+            }
+            return DbHelperSQL.ExecuteSql(sqlSaveHead, paramList);
+        }
+
+        private void CreateSaveHeadSql(Hashtable ht)
+        {
+            if (sqlSaveHead == "")
+            {
+                StringBuilder sb1 = new StringBuilder();
+                StringBuilder sb2 = new StringBuilder();
+                string sql = "insert into EHS_ENTRY_HEAD({0}) values({1})";
+                foreach (DictionaryEntry de in ht)
+                {
+                    sb1.Append(de.Key + ",");
+                    sb2.Append("@" + de.Key + ",");
+                }
+                sb1.Remove(sb1.Length - 1, 1);
+                sb2.Remove(sb2.Length - 1, 1);
+                sqlSaveHead = string.Format(sql, sb1.ToString(), sb2.ToString())
+;
+            }
+        }
+
+
+        public int DeleteDupVoyage(string voyageNo)
+        {
+            string sql = "delete from EHS_ENTRY_HEAD where VOYAGE_NO=@VOYAGE_NO";
+            SqlParameter param = new SqlParameter("@VOYAGE_NO", voyageNo);
+            return DbHelperSQL.ExecuteSql(sql, param);
+        }
+
+        //public void test()
+        //{
+        //    string sql = "select top 1 * from EHS_ENTRY_HEAD";
+        //    var ds = DbHelperSQL.Query(sql);
+        //    foreach (DataColumn col in ds.Tables[0].Columns)
+        //    {
+        //        if (col.ColumnName== "TOTAL_VALUE")
+        //        {
+
+        //        }
+        //    }
+        //}
     }
 }
