@@ -103,11 +103,11 @@ namespace GongBei.DB
         }
 
 
-        public int DeleteDupVoyage(string voyageNo)
+        public bool CheckVoyageExist(string voyageNo)
         {
-            string sql = "delete from EHS_ENTRY_HEAD where VOYAGE_NO=@VOYAGE_NO";
+            string sql = "select count(1) from EHS_ENTRY_HEAD where VOYAGE_NO=@VOYAGE_NO";
             SqlParameter param = new SqlParameter("@VOYAGE_NO", voyageNo);
-            return DbHelperSQL.ExecuteSql(sql, param);
+            return DbHelperSQL.Exists(sql, param);
         }
 
         //public void test()

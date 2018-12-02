@@ -44,9 +44,15 @@ namespace InputForm
                     dgvList.DataSource = ds.Tables[1];
                     AddMessage(string.Format("读取数据成功!表头数据:{0}条,表体数据{1}条", ds.Tables[0].Rows.Count, ds.Tables[1].Rows.Count));
 
-                    db.DeleteDupVoyage(voyageNo);
-                    int rs = AddData(ds.Tables[0]);
-                    AddMessage("成功插入" + rs + "条数据");
+                    if (!db.CheckVoyageExist(voyageNo))
+                    {
+                        int rs = AddData(ds.Tables[0]);
+                        AddMessage("成功插入" + rs + "条数据");
+                    }
+                    else
+                    {
+                        AddMessage("总运单号：" + voyageNo +"在数据库中已存在！");
+                    }
 
                 }
                 else
