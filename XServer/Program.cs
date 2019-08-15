@@ -57,7 +57,7 @@ namespace XServer
             data.Body.PRN = "jlekrtjerjtkerjtkekrtlerktjklertjkeklrt";
             data.Body.UserId = "jlekrtjerjtkerjtkekrtlerktjklertjkeklrt";
             var body = XmlHelper.Serializer(data);
-            string head = string.Format("NTCTTP/1.0 NOTIFY\r\nContent-Type:text/xml\r\nContent-Length:{0}\r\n\r\n", body.Length);
+            string head = string.Format("NTCTTP/1.0 NOTIFY\r\nContent-Type:text/xml\r\nContent-Length:{0}\r\n\r\n", 1000);
             return head + body;
 
         }

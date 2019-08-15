@@ -40,7 +40,7 @@ namespace GongBei.Socket
 
         private void CreateHeart()
         {
-            
+
             try
             {
                 ctHeartBeatRequest heart = new ctHeartBeatRequest();
@@ -121,7 +121,13 @@ namespace GongBei.Socket
             //{
             //    await ConnectToServer();
             //}
+#if DEBUG
+            return true;
+#else
+           
+#endif
             return isConnected;
+
         }
 
         public async Task<bool> Send(string message)
@@ -195,7 +201,8 @@ namespace GongBei.Socket
                 var headBytes = new byte[length];
                 bufferStream.Read(headBytes, 0, length);
                 var str = Encoding.UTF8.GetString(headBytes);
-                bodyLength = int.Parse(str.Substring(str.LastIndexOf(":") + 1).Replace("\r","").Replace("\n",""));
+                var len = str.Length;
+                bodyLength = int.Parse(str.Substring(str.LastIndexOf(":") + 1).Replace("\r", "").Replace("\n", ""));
 
                 return bodyLength + 4;
             }

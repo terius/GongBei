@@ -2,7 +2,7 @@
 using GongBei.Model;
 using GongBei.Socket;
 using System;
-using System.Globalization;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -19,6 +19,7 @@ namespace GongBei
         static readonly string conclusionResultPath = System.Configuration.ConfigurationManager.AppSettings["conclusionResultPath"];
         static readonly int scanTime = int.Parse(System.Configuration.ConfigurationManager.AppSettings["scanTime"]);
         static SQLAction sqlAction;
+        static string errorPath;
 
         //private static byte[] result = new byte[1024];
         //static void s2()
@@ -69,7 +70,7 @@ namespace GongBei
             try
             {
                 Init();
-                ReadFile();
+                ReadFileProcess();
                 Console.ReadLine();
             }
             catch (Exception ex)
@@ -77,54 +78,73 @@ namespace GongBei
                 Console.WriteLine(ex.Message);
                 FileHelper.WriteLog(ex.ToString());
             }
-           
+
         }
 
-        private static void ReadFile()
+
+
+        private static void ReadFileProcess()
         {
             new Thread(() =>
             {
-                DirectoryInfo dir = new DirectoryInfo(sendPath);
                 string barcode = "";
                 string billNo = "";
                 bool sendOk = false;
                 StringBuilder sbMsg = new StringBuilder();
-                var lastFile = "";
+                string[] files = null;
+                string errorFile = "";
+                string sendOutFilePath = "";
+                ctBarcodeMessage sendData = null;
+                string readFileString = "";
                 while (true)
                 {
-                    if (client.CheckIsConnected())
+                    try
                     {
-                        foreach (FileInfo file in dir.GetFiles())
+                        if (client.CheckIsConnected())
                         {
-                            if (lastFile != file.Name)
+                            sendOutFilePath = FileHelper.CombineFile(sendOutPath, DateTime.Now.ToString("yyyy-MM-dd"));
+                            files = Directory.GetFiles(sendPath);
+                            foreach (string fileFullname in files)
                             {
-                                lastFile = file.Name;
+                                errorFile = fileFullname;
+                                sbMsg.Clear();
+                                readFileString = FileHelper.ReadTxt(fileFullname);
+                                sbMsg.AppendLine("获取到文件：" + fileFullname + " 内容：" + readFileString);
+                                barcode = readFileString.Split(',')[1].Trim();
+                                billNo = readFileString.Split(',')[0].Trim();
+                                sendData = CreateSendData(barcode, billNo);
+                                sbMsg.Append("开始发送数据.....");
+                                sendOk = false;
+                                try
+                                {
+                                    sendOk = client.Send(sendData).Result;
+                                }
+                                catch (Exception ex)
+                                {
+                                    FileHelper.WriteLog("socket错误," + ex.ToString());
+                                }
+                                if (sendOk)
+                                {
+                                    FileHelper.MoveFile(fileFullname, sendOutFilePath);
+                                }
+                                sbMsg.Append(sendOk ? "成功" : "失败");
+                                FileHelper.WriteLog(sbMsg.ToString());
+                                Thread.Sleep(20);
                             }
-                            else
-                            {
-                                file.Delete();
-                                continue;
-                            }
-                            sbMsg.Clear();
-                            var rs = FileHelper.ReadTxt(file.FullName);
-                            sbMsg.AppendLine("获取到文件：" + file.FullName + " 内容：" + rs);
-                            barcode = rs.Split(',')[1].Trim();
-                            billNo = rs.Split(',')[0].Trim();
-                            var sendData = CreateSendData(barcode, billNo);
-                            sbMsg.Append("开始发送数据.....");
-                            sendOk = client.Send(sendData).Result;
-                            if (sendOk)
-                            {
-                                var newPath = Path.Combine(sendOutPath, DateTime.Now.ToString("yyyy-MM-dd"));
-
-                                FileHelper.MoveFile(file, newPath);
-                            }
-                            sbMsg.Append(sendOk ? "成功" : "失败");
-                            FileHelper.WriteLog(sbMsg.ToString());
-                            Console.WriteLine(sbMsg.ToString());
-                            Thread.Sleep(10);
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        FileHelper.WriteLog(ex.ToString(), "读取错误,读取文件：" + errorFile);
+                        if (errorFile != "")
+                        {
+                            var newPath = FileHelper.CombineFile(errorPath, DateTime.Now.ToString("yyyy-MM-dd"));
+                            Thread.Sleep(20);
+                            FileHelper.MoveFile(errorFile, newPath);
+                        }
+
+                    }
+
                     Thread.Sleep(scanTime);
                 }
             }).Start();
@@ -177,6 +197,12 @@ namespace GongBei
             {
                 Directory.CreateDirectory(sendOutPath);
             }
+
+            errorPath = AppDomain.CurrentDomain.BaseDirectory + "ErrorFiles";
+            if (!Directory.Exists(errorPath))
+            {
+                Directory.CreateDirectory(errorPath);
+            }
         }
 
         private static void SavectConclusionResult(ReceieveMessage res)
@@ -188,12 +214,12 @@ namespace GongBei
 
         private static void SaveToFile(string dataStr)
         {
-            var path = Path.Combine(conclusionResultPath, DateTime.Now.ToString("yyyy-MM-dd"));
+            var path = FileHelper.CombineFile(conclusionResultPath, DateTime.Now.ToString("yyyy-MM-dd"));
             if (!Directory.Exists(path))
             {
                 Directory.CreateDirectory(path);
             }
-            var fileName = Path.Combine(path, DateTime.Now.ToString("yyyyMMddHHmmssfff") + ".xml");
+            var fileName = FileHelper.CombineFile(path, DateTime.Now.ToString("yyyyMMddHHmmssfff") + ".xml");
             XmlHelper.SaveToXMLFile(dataStr, fileName);
         }
 
@@ -212,5 +238,5 @@ namespace GongBei
         }
     }
 
-  
+
 }
