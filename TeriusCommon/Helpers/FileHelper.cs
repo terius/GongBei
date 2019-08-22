@@ -8,25 +8,24 @@ namespace TeriusCommon.Helpers
 {
     public class FileHelper
     {
-        const int LOCK = 500; //申请读写时间
-        const int SLEEP = 100; //线程挂起时间
         static ReaderWriterLockSlim readWriteLock = new ReaderWriterLockSlim();
-        private static readonly int SaveLog = Convert.ToInt32(System.Configuration.ConfigurationManager.AppSettings["saveLog"]);
+        static readonly int SaveLog = Convert.ToInt32(System.Configuration.ConfigurationManager.AppSettings["saveLog"]);
         static readonly string basePath = AppDomain.CurrentDomain.BaseDirectory;
-        public static void WriteLog(
-        string message,
-        string title = "",
-        [CallerMemberName] string memberName = "",
-        [CallerFilePath] string fileName = "",
-        [CallerLineNumber] int lineNumber = 0)
+        public static void WriteLog(string message, string title = "")
         {
-            StringBuilder sb = new StringBuilder();
-            sb.AppendLine("【" + fileName + " --- " + memberName + " ---- " + lineNumber + "】" + (title == "" ? "" : title));
-            sb.AppendLine(message);
-            WriteLog2(sb.ToString());
+            string msg = (title == "" ? "" : ("---" + title + "---")) + message;
+            WriteLogToFile(msg);
         }
 
-        private static void WriteLog2(string msg) //写入文件
+        public static void WriteReadLog(string message, string title = "")
+        {
+            string msg = (title == "" ? "" : ("---" + title + "---")) + message;
+            WriteLogToFile(msg,"ReadFiles");
+        }
+
+        
+
+        public static void WriteLogToFile(string msg,string filePath= "Logs") //写入文件
         {
             if (SaveLog != 1)
             {
@@ -36,27 +35,30 @@ namespace TeriusCommon.Helpers
             try
             {
 
-                string path = basePath + "Logs";
+                string path = basePath + filePath;
                 if (!Directory.Exists(path))
                 {
                     Directory.CreateDirectory(path);
                 }
                 path += "\\" + DateTime.Now.ToString("yyyy-MM-dd") + ".log";
-                if (!File.Exists(path))
-                {
-                    FileStream fs1 = File.Create(path);
-                    fs1.Close();
-                    Thread.Sleep(10);
-                }
-
-                using (StreamWriter sw = new StreamWriter(path, true, Encoding.Default))
-                {
-                    string txt = string.Format("-------------------{0}-------------------\r\n{1}\r\n\r\n",
-                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), msg);
-                    sw.WriteLine(txt);
-                    sw.Flush();
-                    sw.Close();
-                }
+                string txt = string.Format("【{0}】{1}\r\n",
+                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"), msg);
+                File.AppendAllText(path,txt, Encoding.Default);
+                //if (!File.Exists(path))
+                //{
+                //    FileStream fs1 = File.Create(path);
+                //    fs1.Close();
+                //    Thread.Sleep(10);
+                //}
+               
+                //using (StreamWriter sw = new StreamWriter(path, true, Encoding.Default))
+                //{
+                //    string txt = string.Format("-------------------{0}-------------------\r\n{1}",
+                //        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), msg);
+                //    sw.WriteLine(txt);
+                //    sw.Flush();
+                //    sw.Close();
+                //}
                 //  Thread.Sleep(SLEEP);
 
             }
@@ -75,8 +77,9 @@ namespace TeriusCommon.Helpers
         {
             // string text = File.ReadAllText(fileName);
             //return text;
+            SpinWait.SpinUntil(() => false, 100);
             StringBuilder sb = new StringBuilder();
-            using (FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 using (StreamReader sr = new StreamReader(fs, System.Text.Encoding.Default))
                 {
@@ -86,12 +89,12 @@ namespace TeriusCommon.Helpers
                     }
                 }
             }
-            return sb.ToString();
+            return sb.ToString().Trim();
 
         }
 
         static object obMoveFile = new object();
-        public static void MoveFile(string filePath, string newPath)
+        public static bool MoveFile(string filePath, string newPath)
         {
             lock (obMoveFile)
             {
@@ -102,13 +105,19 @@ namespace TeriusCommon.Helpers
                         Directory.CreateDirectory(newPath);
                     }
                     File.Move(filePath, CombineFile(newPath, Path.GetFileName(filePath)));
+                    return true;
                 }
                 catch (Exception ex)
                 {
-                    WriteLog("操作文件：" + filePath + "错误，错误信息：" + ex.Message);
+                    WriteReadLog("操作文件：" + filePath + "错误，错误信息：" + ex.Message);
                     var fileName = DateTime.Now.ToString("yyyyMMddHHmmssfff") + "_" + Path.GetFileName(filePath);
-                    File.Move(filePath, CombineFile(basePath, "ErrorFiles", fileName));
+                    if (File.Exists(filePath))
+                    {
+                        File.Move(filePath, CombineFile(basePath, "ErrorFiles", fileName));
+                    }
+                  
                 }
+                return false;
             }
 
         }

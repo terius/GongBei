@@ -67,87 +67,145 @@ namespace GongBei
 
         static void Main(string[] args)
         {
+            string mutex_id = "GongBeiTranService";
+            using (Mutex mutex = new Mutex(false, mutex_id))
+            {
+                if (!mutex.WaitOne(0, false))
+                {
+                    Console.WriteLine("程序已打开，请关闭此程序");
+                    Thread.Sleep(1000);
+                    return;
+                }
+                try
+                {
+                    FileHelper.WriteLog("程序已启动");
+                    Init();
+                    ReadFileProcess();
+                    WatcherStart(sendPath, "*.*");
+                    Console.ReadLine();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    FileHelper.WriteLog(ex.ToString());
+                }
+            }
+          
+
+        }
+        #region 监控文件
+        private static void WatcherStart(string path, string filter)
+        {
+
+            FileSystemWatcher watcher = new FileSystemWatcher();
+            watcher.Path = path;
+            watcher.Filter = filter;
+            watcher.Created += new FileSystemEventHandler(OnProcess);
+
+            watcher.EnableRaisingEvents = true;
+            watcher.NotifyFilter = NotifyFilters.FileName;
+            //watcher.NotifyFilter = NotifyFilters.Attributes | NotifyFilters.CreationTime | NotifyFilters.DirectoryName | NotifyFilters.FileName | NotifyFilters.LastAccess
+            //                       | NotifyFilters.LastWrite | NotifyFilters.Security | NotifyFilters.Size;
+            watcher.IncludeSubdirectories = false;
+        }
+
+        private static void OnProcess(object source, FileSystemEventArgs e)
+        {
+            if (e.ChangeType == WatcherChangeTypes.Created)
+            {
+                FileHelper.WriteReadLog("读取到新文件:" + e.FullPath);
+                OnCreated(source, e);
+            }
+
+        }
+        private static void OnCreated(object source, FileSystemEventArgs e)
+        {
+            if (client.CheckIsConnected())
+            {
+                HandleReadFile(e.FullPath);
+            }
+        }
+
+        #endregion
+
+        private static void ReadFileProcess()
+        {
+            //Thread td = new Thread(() =>
+            //{
+            //    while (true)
+            //    {
+
+            //    }
+            //});
+            //td.IsBackground = true;
+            //td.Start();
             try
             {
-                Init();
-                ReadFileProcess();
-                Console.ReadLine();
+                if (client.CheckIsConnected())
+                {
+                    var files = Directory.GetFiles(sendPath);
+                    foreach (string fileFullname in files)
+                    {
+                        HandleReadFile(fileFullname);
+                        Thread.Sleep(100);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
-                FileHelper.WriteLog(ex.ToString());
+                FileHelper.WriteReadLog("文件执行错误，错误信息："+ ex.ToString());
             }
+          
 
         }
 
 
-
-        private static void ReadFileProcess()
+        private static void HandleReadFile(string fileFullname)
         {
-            new Thread(() =>
+            var errorFile = fileFullname;
+            try
             {
-                string barcode = "";
-                string billNo = "";
-                bool sendOk = false;
-                StringBuilder sbMsg = new StringBuilder();
-                string[] files = null;
-                string errorFile = "";
-                string sendOutFilePath = "";
-                ctBarcodeMessage sendData = null;
-                string readFileString = "";
-                while (true)
+                var readFileString = FileHelper.ReadTxt(fileFullname);
+                var barcode = readFileString.Split(',')[1].Trim();
+                var billNo = readFileString.Split(',')[0].Trim();
+                var sendData = CreateSendData(barcode, billNo);
+                var sendOk = false;
+                try
                 {
-                    try
-                    {
-                        if (client.CheckIsConnected())
-                        {
-                            sendOutFilePath = FileHelper.CombineFile(sendOutPath, DateTime.Now.ToString("yyyy-MM-dd"));
-                            files = Directory.GetFiles(sendPath);
-                            foreach (string fileFullname in files)
-                            {
-                                errorFile = fileFullname;
-                                sbMsg.Clear();
-                                readFileString = FileHelper.ReadTxt(fileFullname);
-                                sbMsg.AppendLine("获取到文件：" + fileFullname + " 内容：" + readFileString);
-                                barcode = readFileString.Split(',')[1].Trim();
-                                billNo = readFileString.Split(',')[0].Trim();
-                                sendData = CreateSendData(barcode, billNo);
-                                sbMsg.Append("开始发送数据.....");
-                                sendOk = false;
-                                try
-                                {
-                                    sendOk = client.Send(sendData).Result;
-                                }
-                                catch (Exception ex)
-                                {
-                                    FileHelper.WriteLog("socket错误," + ex.ToString());
-                                }
-                                if (sendOk)
-                                {
-                                    FileHelper.MoveFile(fileFullname, sendOutFilePath);
-                                }
-                                sbMsg.Append(sendOk ? "成功" : "失败");
-                                FileHelper.WriteLog(sbMsg.ToString());
-                                Thread.Sleep(20);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        FileHelper.WriteLog(ex.ToString(), "读取错误,读取文件：" + errorFile);
-                        if (errorFile != "")
-                        {
-                            var newPath = FileHelper.CombineFile(errorPath, DateTime.Now.ToString("yyyy-MM-dd"));
-                            Thread.Sleep(20);
-                            FileHelper.MoveFile(errorFile, newPath);
-                        }
+#if DEBUG
+                    sendOk = true;
+#else
+                    sendOk = client.Send(sendData).Result;
+#endif
 
-                    }
-
-                    Thread.Sleep(scanTime);
                 }
-            }).Start();
+                catch (Exception ex)
+                {
+                    FileHelper.WriteReadLog("socket错误," + ex.ToString());
+                }
+                var sendResult = sendOk ? "socket发送成功" : "socket发送失败";
+                var moveResult = "";
+                if (sendOk)
+                {
+                    var sendOutFilePath = FileHelper.CombineFile(sendOutPath, DateTime.Now.ToString("yyyy-MM-dd"));
+                    sendOk = FileHelper.MoveFile(fileFullname, sendOutFilePath);
+                    moveResult = sendOk ? "移动文件成功" : "移动文件失败";
+                }
+
+                var isSendOk = sendOk ? "成功" : "失败";
+                var logStr = string.Format($"获取到文件名:{fileFullname},内容:{readFileString},{sendResult},{moveResult},执行{isSendOk}");
+                FileHelper.WriteReadLog(logStr);
+            }
+            catch (Exception ex)
+            {
+                FileHelper.WriteReadLog(ex.ToString(), "读取错误,读取文件：" + errorFile);
+                if (errorFile != "")
+                {
+                    var newPath = FileHelper.CombineFile(errorPath, DateTime.Now.ToString("yyyy-MM-dd"));
+                    Thread.Sleep(20);
+                    FileHelper.MoveFile(errorFile, newPath);
+                }
+            }
 
         }
 
