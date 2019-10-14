@@ -15,6 +15,7 @@ namespace XServer
         static Socket serverSocket;
         static void Main(string[] args)
         {
+            Console.WriteLine("深圳20191014");
             //服务器IP地址 
             IPAddress ip = IPAddress.Parse("127.0.0.1");
             serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
