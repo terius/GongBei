@@ -2,14 +2,15 @@
 using GongBei.Model;
 using GongBei.Socket;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading;
 using TeriusCommon.Helpers;
 
 namespace GongBei
 {
+    /// <summary>
+    /// 深圳分支20191014
+    /// </summary>
     class Program
     {
 

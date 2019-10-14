@@ -20,6 +20,7 @@ namespace GongBei.Model
         public string UserId { get; set; }
         public int Department { get; set; }
         public string JudgeResult { get; set; }
+        public int ResultMask { get; set; }
         public int JudgeCategory { get; set; }
         public DateTime JudgeTime { get; set; }
     }
