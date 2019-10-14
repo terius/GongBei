@@ -16,7 +16,9 @@ namespace GongBei
 
         static SocketClient client;
         static readonly string sendPath = System.Configuration.ConfigurationManager.AppSettings["sendPath"];
+        static readonly string sendPath2 = System.Configuration.ConfigurationManager.AppSettings["sendPath2"];
         static readonly string sendOutPath = System.Configuration.ConfigurationManager.AppSettings["sendOutPath"];
+        static readonly string sendOutPath2 = System.Configuration.ConfigurationManager.AppSettings["sendOutPath2"];
         static readonly string conclusionResultPath = System.Configuration.ConfigurationManager.AppSettings["conclusionResultPath"];
         static readonly int scanTime = int.Parse(System.Configuration.ConfigurationManager.AppSettings["scanTime"]);
         static SQLAction sqlAction;
@@ -82,7 +84,9 @@ namespace GongBei
                     FileHelper.WriteLog("程序已启动");
                     Init();
                     ReadFileProcess();
+                    ReadFileProcess2();
                     WatcherStart(sendPath, "*.*");
+                    WatcherStart2(sendPath2, "*.*");
                     Console.ReadLine();
                 }
                 catch (Exception ex)
@@ -126,6 +130,40 @@ namespace GongBei
                 HandleReadFile(e.FullPath);
             }
         }
+        #endregion
+
+        #region 监控文件2
+        private static void WatcherStart2(string path, string filter)
+        {
+
+            FileSystemWatcher watcher = new FileSystemWatcher();
+            watcher.Path = path;
+            watcher.Filter = filter;
+            watcher.Created += new FileSystemEventHandler(OnProcess2);
+
+            watcher.EnableRaisingEvents = true;
+            watcher.NotifyFilter = NotifyFilters.FileName;
+            //watcher.NotifyFilter = NotifyFilters.Attributes | NotifyFilters.CreationTime | NotifyFilters.DirectoryName | NotifyFilters.FileName | NotifyFilters.LastAccess
+            //                       | NotifyFilters.LastWrite | NotifyFilters.Security | NotifyFilters.Size;
+            watcher.IncludeSubdirectories = false;
+        }
+
+        private static void OnProcess2(object source, FileSystemEventArgs e)
+        {
+            if (e.ChangeType == WatcherChangeTypes.Created)
+            {
+                FileHelper.WriteReadLog("读取到新文件:" + e.FullPath);
+                OnCreated2(source, e);
+            }
+
+        }
+        private static void OnCreated2(object source, FileSystemEventArgs e)
+        {
+            if (client.CheckIsConnected())
+            {
+                HandleReadFile2(e.FullPath);
+            }
+        }
 
         #endregion
 
@@ -159,6 +197,36 @@ namespace GongBei
           
 
         }
+        private static void ReadFileProcess2()
+        {
+            //Thread td = new Thread(() =>
+            //{
+            //    while (true)
+            //    {
+
+            //    }
+            //});
+            //td.IsBackground = true;
+            //td.Start();
+            try
+            {
+                if (client.CheckIsConnected())
+                {
+                    var files = Directory.GetFiles(sendPath2);
+                    foreach (string fileFullname in files)
+                    {
+                        HandleReadFile2(fileFullname);
+                        Thread.Sleep(100);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                FileHelper.WriteReadLog("文件执行错误，错误信息：" + ex.ToString());
+            }
+
+
+        }
 
 
         private static void HandleReadFile(string fileFullname)
@@ -189,6 +257,56 @@ namespace GongBei
                 if (sendOk)
                 {
                     var sendOutFilePath = FileHelper.CombineFile(sendOutPath, DateTime.Now.ToString("yyyy-MM-dd"));
+                    sendOk = FileHelper.MoveFile(fileFullname, sendOutFilePath);
+                    moveResult = sendOk ? "移动文件成功" : "移动文件失败";
+                }
+
+                var isSendOk = sendOk ? "成功" : "失败";
+                var logStr = string.Format($"获取到文件名:{fileFullname},内容:{readFileString},{sendResult},{moveResult},执行{isSendOk}");
+                FileHelper.WriteReadLog(logStr);
+            }
+            catch (Exception ex)
+            {
+                FileHelper.WriteReadLog(ex.ToString(), "读取错误,读取文件：" + errorFile);
+                if (errorFile != "")
+                {
+                    var newPath = FileHelper.CombineFile(errorPath, DateTime.Now.ToString("yyyy-MM-dd"));
+                    Thread.Sleep(20);
+                    FileHelper.MoveFile(errorFile, newPath);
+                }
+            }
+
+        }
+
+        private static void HandleReadFile2(string fileFullname)
+        {
+            var errorFile = fileFullname;
+            try
+            {
+                var readFileString = FileHelper.ReadTxt(fileFullname);
+                var barcode = readFileString.Split(',')[1].Trim();
+                var billNo = readFileString.Split(',')[0].Trim();
+                var resultFlag = readFileString.Split(',')[2].Trim();
+                var sendData = CreateSendData2(barcode, billNo, resultFlag);
+                var sendOk = false;
+                try
+                {
+#if DEBUG
+                    sendOk = true;
+#else
+                    sendOk = client.Send(sendData).Result;
+#endif
+
+                }
+                catch (Exception ex)
+                {
+                    FileHelper.WriteReadLog("socket错误," + ex.ToString());
+                }
+                var sendResult = sendOk ? "socket发送成功" : "socket发送失败";
+                var moveResult = "";
+                if (sendOk)
+                {
+                    var sendOutFilePath = FileHelper.CombineFile(sendOutPath2, DateTime.Now.ToString("yyyy-MM-dd"));
                     sendOk = FileHelper.MoveFile(fileFullname, sendOutFilePath);
                     moveResult = sendOk ? "移动文件成功" : "移动文件失败";
                 }
@@ -252,9 +370,19 @@ namespace GongBei
                 Directory.CreateDirectory(sendPath);
             }
 
+            if (!Directory.Exists(sendPath2))
+            {
+                Directory.CreateDirectory(sendPath2);
+            }
+
             if (!Directory.Exists(sendOutPath))
             {
                 Directory.CreateDirectory(sendOutPath);
+            }
+
+            if (!Directory.Exists(sendOutPath2))
+            {
+                Directory.CreateDirectory(sendOutPath2);
             }
 
             errorPath = AppDomain.CurrentDomain.BaseDirectory + "ErrorFiles";
@@ -293,6 +421,15 @@ namespace GongBei
             ctBarcodeMessage info = new ctBarcodeMessage();
             info.Body.Barcode = barcode;
             info.Body.BillNo = billNo;
+            return info;
+        }
+
+        static ctSortingResult CreateSendData2(string barcode, string billNo,string result)
+        {
+            ctSortingResult info = new ctSortingResult();
+            info.Body.Barcode = barcode;
+            info.Body.BillNo = billNo;
+            info.Body.Result = result;
             return info;
         }
     }

@@ -7,7 +7,7 @@
     <ProjectGuid>{3CF170D0-5493-4E1C-B957-CFD3673A8005}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>GongBei</RootNamespace>
-    <AssemblyName>GongBei</AssemblyName>
+    <AssemblyName>ShenZhenTran</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -43,7 +43,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

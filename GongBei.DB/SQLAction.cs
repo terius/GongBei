@@ -12,12 +12,13 @@ namespace GongBei.DB
     public class SQLAction
     {
         string SavectConclusionResultData_SQL = "";
+        string SavectConclusionResultData_HasResultMask_SQL = "";
         readonly string StationID = System.Configuration.ConfigurationManager.AppSettings["StationID"];
         public int SavectConclusionResultData(ctConclusionResult info)
         {
             try
             {
-                CreateConclusionResultSql();
+                CreateConclusionResultSql(info.Body.ResultMask);
                 var M_Result = info.Body.JudgeResult == "R" ? "1" : "0";
                 IList<SqlParameter> sqlparams = new List<SqlParameter>();
                 sqlparams.Add(new SqlParameter("@OPT_ID", info.Body.UserId));
@@ -25,7 +26,17 @@ namespace GongBei.DB
                 sqlparams.Add(new SqlParameter("@OPT_Time", info.Body.JudgeTime));
                 sqlparams.Add(new SqlParameter("@VOYAGE_NO", info.Body.BillNo));
                 sqlparams.Add(new SqlParameter("@BILL_NO_1", info.Body.Barcode));
-                return DbHelperSQL.ExecuteSql(SavectConclusionResultData_SQL, sqlparams);
+                if (info.Body.ResultMask != null)
+                {
+                    sqlparams.Add(new SqlParameter("@ResultMask", info.Body.ResultMask.Value));
+                    return DbHelperSQL.ExecuteSql(SavectConclusionResultData_HasResultMask_SQL, sqlparams);
+                }
+                else
+                {
+                    return DbHelperSQL.ExecuteSql(SavectConclusionResultData_SQL, sqlparams);
+                }
+
+             
             }
             catch (System.Exception ex)
             {
@@ -56,18 +67,33 @@ namespace GongBei.DB
             return 0;
         }
 
-        private void CreateConclusionResultSql()
+        private void CreateConclusionResultSql(int? resultMask)
         {
 
-
-            if (SavectConclusionResultData_SQL == "")
+            if (resultMask != null)
             {
-                StringBuilder sb = new StringBuilder("update EHS_ENTRY_TMP set ");
-                sb.Append("OPT_ID=@OPT_ID,");
-                sb.Append("M_Result=@M_Result,");
-                sb.Append("OPT_Time=@OPT_Time ");
-                sb.Append(" where VOYAGE_NO=@VOYAGE_NO and  BILL_NO_1=@BILL_NO_1");
-                SavectConclusionResultData_SQL = sb.ToString();
+                if (SavectConclusionResultData_HasResultMask_SQL == "")
+                {
+                    StringBuilder sb = new StringBuilder("update EHS_ENTRY_TMP set ");
+                    sb.Append("OPT_ID=@OPT_ID,");
+                    sb.Append("M_Result=@M_Result,");
+                    sb.Append("OPT_Time=@OPT_Time, ");
+                    sb.Append("ResultMask=@ResultMask ");
+                    sb.Append(" where VOYAGE_NO=@VOYAGE_NO and  BILL_NO_1=@BILL_NO_1");
+                    SavectConclusionResultData_HasResultMask_SQL = sb.ToString();
+                }
+            }
+            else
+            {
+                if (SavectConclusionResultData_SQL == "")
+                {
+                    StringBuilder sb = new StringBuilder("update EHS_ENTRY_TMP set ");
+                    sb.Append("OPT_ID=@OPT_ID,");
+                    sb.Append("M_Result=@M_Result,");
+                    sb.Append("OPT_Time=@OPT_Time ");
+                    sb.Append(" where VOYAGE_NO=@VOYAGE_NO and  BILL_NO_1=@BILL_NO_1");
+                    SavectConclusionResultData_SQL = sb.ToString();
+                }
             }
         }
 
