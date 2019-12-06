@@ -25,6 +25,7 @@ namespace GongBei.DB
                 sqlparams.Add(new SqlParameter("@OPT_Time", info.Body.JudgeTime));
                 sqlparams.Add(new SqlParameter("@VOYAGE_NO", info.Body.BillNo));
                 sqlparams.Add(new SqlParameter("@BILL_NO_1", info.Body.Barcode));
+                sqlparams.Add(new SqlParameter("@PICTURE_NAME", info.Body.PRN));
                 return DbHelperSQL.ExecuteSql(SavectConclusionResultData_SQL, sqlparams);
             }
             catch (System.Exception ex)
@@ -65,7 +66,8 @@ namespace GongBei.DB
                 StringBuilder sb = new StringBuilder("update EHS_ENTRY_TMP set ");
                 sb.Append("OPT_ID=@OPT_ID,");
                 sb.Append("M_Result=@M_Result,");
-                sb.Append("OPT_Time=@OPT_Time ");
+                sb.Append("OPT_Time=@OPT_Time,");
+                sb.Append("PICTURE_NAME=@PICTURE_NAME ");
                 sb.Append(" where VOYAGE_NO=@VOYAGE_NO and  BILL_NO_1=@BILL_NO_1");
                 SavectConclusionResultData_SQL = sb.ToString();
             }
